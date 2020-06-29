@@ -202,5 +202,7 @@ while True:
             # Wait a little
             time.sleep(0.1)
 
+    except KeyboardInterrupt:
+        raise
     except:
         pass
