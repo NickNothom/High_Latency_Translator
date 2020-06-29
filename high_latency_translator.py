@@ -4,8 +4,8 @@ from pymavlink import mavutil
 vehicle = mavutil.mavlink_connection('udpin:0.0.0.0:14551')
 basestation = mavutil.mavlink_connection('udpout:0.0.0.0:14770')
 
+refresh_interval = 10  # Seconds
 heartbeat_count = 0
-refresh_interval = 10
 
 
 def wait_conn(master):
@@ -147,10 +147,12 @@ def send_buf(target, buf, force_mavlink1=False):
 wait_conn(vehicle)
 init_params(vehicle)
 
-basestation.mav.srcSystem = 7
+# Make messages to the base station look like they are from the vehicle
+basestation.mav.srcSystem = vehicle.sysid
 basestation.mav.srcComponent = 1
 
-vehicle.mav.srcSystem = 255
+# Make messages to the vehicle look like they are from system 200
+vehicle.mav.srcSystem = 200
 vehicle.mav.srcComponent = 1
 
 while True:
@@ -164,7 +166,6 @@ while True:
             process_message(vehicle_message_dict, vehicle)
             if vehicle_message_dict['mavpackettype'] == 'HEARTBEAT':
                 heartbeat_count += 1
-                # print("Vehicle: ", vehicle_message_dict)
                 if heartbeat_count == refresh_interval:
                     heartbeat_count = 0
                     print("Vehicle: ", vehicle_message_dict)
@@ -172,10 +173,12 @@ while True:
                         high_latency2_out(vehicle, basestation)
                     except Exception as e:
                         print(e)
+
         elif basestation_message:
             # Forward BaseStation Message to Vehicle
             print("BaseStation: ", basestation_message.to_dict())
             vehicle.mav.send(basestation_message)
+
         else:
             # No Message at this time
             # Wait a little
