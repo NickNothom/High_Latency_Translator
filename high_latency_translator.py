@@ -1,7 +1,7 @@
 import time
 from pymavlink import mavutil
 
-vehicle = mavutil.mavlink_connection('udpin:0.0.0.0:14551')
+vehicle = mavutil.mavlink_connection('udpout:0.0.0.0:14551')
 basestation = mavutil.mavlink_connection('udpout:0.0.0.0:14770')
 
 refresh_interval = 10  # Seconds
