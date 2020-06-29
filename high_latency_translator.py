@@ -7,6 +7,8 @@ basestation = mavutil.mavlink_connection('udpout:0.0.0.0:14770')
 refresh_interval = 10  # Seconds
 heartbeat_count = 0
 
+high_latency_enabled = True
+
 
 def wait_conn(master):
     msg = None
@@ -151,8 +153,8 @@ init_params(vehicle)
 basestation.mav.srcSystem = vehicle.sysid
 basestation.mav.srcComponent = 1
 
-# Make messages to the vehicle look like they are from system 200
-vehicle.mav.srcSystem = 200
+# Make messages to the vehicle look like they are from system 201
+vehicle.mav.srcSystem = 201
 vehicle.mav.srcComponent = 1
 
 while True:
@@ -161,6 +163,10 @@ while True:
         basestation_message = basestation.recv_msg()
 
         if vehicle_message:
+            # Reject incoming messages that aren't from the vehicle
+            # if vehicle_message._header.srcSystem != vehicle.sysid:
+            #     break
+
             # Update Vehicle State
             vehicle_message_dict = vehicle_message.to_dict()
             process_message(vehicle_message_dict, vehicle)
@@ -169,16 +175,28 @@ while True:
                 if heartbeat_count == refresh_interval:
                     heartbeat_count = 0
                     print("Vehicle: ", vehicle_message_dict)
-                    try:
-                        high_latency2_out(vehicle, basestation)
-                    except Exception as e:
-                        print(e)
+                    if high_latency_enabled:
+                        try:
+                            high_latency2_out(vehicle, basestation)
+                        except Exception as e:
+                            print(e)
 
         elif basestation_message:
-            # Forward BaseStation Message to Vehicle
-            print("BaseStation: ", basestation_message.to_dict())
-            vehicle.mav.send(basestation_message)
+            basestation_message_dict = basestation_message.to_dict()
 
+            # Stop MAV_CMD_CONTROL_HIGH_LATENCY from getting to the vehicle
+            if basestation_message_dict['mavpackettype'] == 'COMMAND_LONG':
+                # Enable / Disable High Latency Transmission
+                if basestation_message_dict['command'] == 2600:
+                    print("High Latency Enabled: ", bool(basestation_message.param1))
+                    high_latency_enabled = bool(basestation_message.param1)
+                else:
+                    break
+
+            # Forward BaseStation Message to Vehicle
+            else:
+                vehicle.mav.send(basestation_message)
+                print("BaseStation: ", basestation_message_dict)
         else:
             # No Message at this time
             # Wait a little
